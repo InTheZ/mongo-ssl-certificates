@@ -28,20 +28,20 @@ if __name__ == '__main__':
     certpass = getpass.getpass("Cert Password: ")
 
     if len(certpass)>0:
-        os.system("openssl req -newkey rsa:4096 -x509 -extensions v3_ca -keyout \
-            ssl/temp.key -sha512 -out ssl/temp.crt -days 365\
-            -subj '/O=" + args.company +"/L=" + args.locality +"\
-            /ST=" + args.state + "/C=US/CN=" + args.domain + "\
-            /emailAddress=" + args.email + "' -passout pass:" + capass +\
-            " -addext 'subjectAltName=DNS:" + args.domain + \
-            "' -passin pass:" + certpass)
+        os.system("openssl genrsa -aes128 -out ssl/temp.key -passout pass:" + certpass + " 4096")
+        os.system("openssl req -key ssl/temp.key -new -out ssl/temp.csr\
+ -subj '/O=" + args.company +\
+"/L=" + args.locality +"/ST=" + args.state + "/C=US/CN=" + args.domain + "\
+/emailAddress=" + args.email +"' -addext 'subjectAltName=DNS:" + args.domain + \
+"' -passin pass:" + certpass)
     else:
-        os.system("openssl req -newkey rsa:4096 -x509 -extensions v3_ca -keyout \
-            ssl/temp.key -sha512 -out ssl/temp.crt -days 365\
-            -subj '/O=" + args.company +"/L=" + args.locality +"\
-            /ST=" + args.state + "/C=US/CN=" + args.domain + "\
-            /emailAddress=" + args.email + "' -passout pass:" + capass +\
-            " -addext 'subjectAltName=DNS:" + args.domain +"'")
+        os.system("openssl genrsa -out ssl/temp.key 4096")
+        os.system("openssl req -newkey rsa:4096 -keyout \
+ssl/temp.key -new -out ssl/temp.csr \
+ -subj '/O=" + args.company +"/L=" + args.locality + "/ST=" + args.state + "/C=US/CN=" +\
+     args.domain + "/emailAddress=" + args.email + "'")
+    # Sign CSR with CA
+    os.system("openssl ca -batch -config ssl/openssl.conf -passin pass:" + capass + " -out ssl/temp.crt -infiles ssl/temp.csr")
     os.system("cat ssl/temp.crt ssl/temp.key > ssl/certs/" + args.name + ".pem")
     os.remove("ssl/temp.crt")
     os.remove("ssl/temp.key")
