@@ -38,7 +38,8 @@ if __name__ == '__main__':
         os.system("openssl genrsa -out ssl/temp.key 4096")
         os.system("openssl req -key ssl/temp.key -new -out ssl/temp.csr \
  -subj '/O=" + args.company +"/L=" + args.locality + "/ST=" + args.state + "/C=US/CN=" +\
-     args.domain + "/emailAddress=" + args.email + "'")
+     args.domain + "/emailAddress=" + args.email +"' -addext 'subjectAltName=DNS:" +\
+     args.domain + "'")
     # Sign CSR with CA
     os.system("openssl ca -batch -config ssl/openssl.conf -passin pass:" +\
         capass + " -out ssl/temp.crt -infiles ssl/temp.csr")
