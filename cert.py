@@ -36,12 +36,12 @@ if __name__ == '__main__':
 "' -passin pass:" + certpass)
     else:
         os.system("openssl genrsa -out ssl/temp.key 4096")
-        os.system("openssl req -newkey rsa:4096 -keyout \
-ssl/temp.key -new -out ssl/temp.csr \
+        os.system("openssl req -key ssl/temp.key -new -out ssl/temp.csr \
  -subj '/O=" + args.company +"/L=" + args.locality + "/ST=" + args.state + "/C=US/CN=" +\
      args.domain + "/emailAddress=" + args.email + "'")
     # Sign CSR with CA
-    os.system("openssl ca -batch -config ssl/openssl.conf -passin pass:" + capass + " -out ssl/temp.crt -infiles ssl/temp.csr")
+    os.system("openssl ca -batch -config ssl/openssl.conf -passin pass:" +\
+        capass + " -out ssl/temp.crt -infiles ssl/temp.csr")
     os.system("cat ssl/temp.crt ssl/temp.key > ssl/certs/" + args.name + ".pem")
     os.remove("ssl/temp.crt")
     os.remove("ssl/temp.key")
