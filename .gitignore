@@ -50,3 +50,4 @@ Thumbs.db
 
 openssl.conf
 ssl
+ca.json

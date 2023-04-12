@@ -41,8 +41,12 @@ if __name__ == '__main__':
      args.domain + "/emailAddress=" + args.email +"' -addext 'subjectAltName=DNS:" +\
      args.domain + "'")
     # Sign CSR with CA
-    os.system("openssl ca -batch -config ssl/openssl.conf -passin pass:" +\
-        capass + " -out ssl/temp.crt -infiles ssl/temp.csr")
+    if capass != "":
+        os.system("openssl ca -batch -config ssl/openssl.conf -passin pass:" +\
+            capass + " -out ssl/temp.crt -infiles ssl/temp.csr")
+    else:
+        os.system("openssl ca -batch -config ssl/openssl.conf" +\
+            " -out ssl/temp.crt -infiles ssl/temp.csr")
     os.system("cat ssl/temp.crt ssl/temp.key > ssl/certs/" + args.name + ".pem")
     os.remove("ssl/temp.crt")
     os.remove("ssl/temp.key")

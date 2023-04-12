@@ -66,11 +66,19 @@ subjectKeyIdentifier = hash
 authorityKeyIdentifier = keyid:always,issuer
 basicConstraints = critical, CA:true
 """)
-        os.system("openssl genpkey -aes-256-cbc -algorithm RSA \
-            -out ssl/private/cakey.pem -pass pass:" + capass + \
-            " -pkeyopt rsa_keygen_bits:4096")
-        os.system("openssl req -new -x509 -extensions v3_ca -sha512 \
--out ssl/cacert.pem -days 3650 -key ssl/private/cakey.pem \
--subj '/O=" + args.company +"/L=" + args.locality +"\
-/ST=" + args.state + "/C=US/CN=" + args.domain + "\
-/emailAddress='" + args.email + " -passin pass:" + capass)
+        if capass != "":
+            os.system("openssl genpkey -aes-256-cbc -algorithm RSA \
+                -out ssl/private/cakey.pem -pass pass:" + capass + \
+                " -pkeyopt rsa_keygen_bits:4096")
+            os.system("openssl req -new -x509 -extensions v3_ca -sha512 \
+                -out ssl/cacert.pem -days 3650 -key ssl/private/cakey.pem \
+                -subj '/O=" + args.company +"/L=" + args.locality +"\
+                /ST=" + args.state + "/C=US/CN=" + args.domain + "\
+                /emailAddress='" + args.email + " -passin pass:" + capass)
+        else:
+            os.system("openssl genrsa -out ssl/private/cakey.pem 4096")
+            os.system("openssl req -new -x509 -extensions v3_ca -sha512 \
+                -out ssl/cacert.pem -days 3650 -key ssl/private/cakey.pem \
+                -subj '/O=" + args.company +"/L=" + args.locality +"\
+                /ST=" + args.state + "/C=US/CN=" + args.domain + "\
+                /emailAddress='" + args.email)
