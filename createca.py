@@ -1,34 +1,46 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 """Creates a private CA"""
 import argparse
 import getpass
 import os
+import subprocess
+import sys
+from pathlib import Path
+
+def run_command(cmd, check=True, **kwargs):
+    """Run a subprocess command and check for errors"""
+    result = subprocess.run(cmd, text=True, capture_output=True, **kwargs)
+    if check and result.returncode != 0:
+        print(f"❌ Error running: {' '.join(cmd)}")
+        print(result.stderr)
+        sys.exit(1)
+    return result
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Create new CA for TLS certs")
-    parser.add_argument('--email', type=str,help="Default email for certs",\
-        required=True)
-    parser.add_argument('--company', type=str,help="Default company for certs",\
-        required=True)
-    parser.add_argument('--state', type=str,help="Default state for certs",\
-        required=True)
-    parser.add_argument('--locality', type=str,\
-        help="Default city / locality for certs",required=True)
-    parser.add_argument('--domain', type=str,\
-        help="Domain for CA (example.com)",required=True)
+    parser.add_argument('--email', required=True, help="Default email for certs")
+    parser.add_argument('--company', required=True, help="Default company for certs")
+    parser.add_argument('--state', required=True, help="Default state for certs")
+    parser.add_argument('--locality', required=True, help="Default city / locality for certs")
+    parser.add_argument('--domain', required=True, help="Domain for CA (example.com)")
     args = parser.parse_args()
 
-    if not os.path.exists("ssl/"):
-        capass = getpass.getpass("CA Password: ")
-        os.system("mkdir ssl")
-        os.system("chmod 0700 ssl")
-        os.system("mkdir ssl/serials ssl/private ssl/reqs ssl/certs")
-        os.system("echo '100001' > ssl/serial")
-        os.system("touch ssl/certindex.txt")
-        if os.path.exists("ssl/openssl.conf"):
-            os.remove("ssl/openssl.conf")
-        conf = open("ssl/openssl.conf", "w", encoding="utf8")
-        conf.write("""
+    ssl_dir = Path("ssl")
+    if not ssl_dir.exists():
+        capass = getpass.getpass("CA Password (leave blank for unencrypted key): ")
+
+        # Create secure directory structure
+        for subdir in ["serials", "private", "reqs", "certs"]:
+            (ssl_dir / subdir).mkdir(parents=True, exist_ok=True)
+        os.chmod(ssl_dir, 0o700)
+
+        (ssl_dir / "serial").write_text("100001\n")
+        (ssl_dir / "certindex.txt").touch()
+
+        # Create OpenSSL config
+        openssl_conf = ssl_dir / "openssl.conf"
+        with openssl_conf.open("w", encoding="utf-8") as conf:
+            conf.write(f"""
 [ca]
 default_ca = CA_default
 
@@ -61,24 +73,41 @@ req_extensions = v3_ca
 [req_distinguished_name]
 CN = 127.0.0.1
 
-[ v3_ca ]
+[v3_ca]
 subjectKeyIdentifier = hash
 authorityKeyIdentifier = keyid:always,issuer
 basicConstraints = critical, CA:true
+keyUsage = critical, digitalSignature, keyCertSign
 """)
-        if capass != "":
-            os.system("openssl genpkey -aes-256-cbc -algorithm RSA \
-                -out ssl/private/cakey.pem -pass pass:" + capass + \
-                " -pkeyopt rsa_keygen_bits:4096")
-            os.system("openssl req -new -x509 -extensions v3_ca -sha512 \
-                -out ssl/cacert.pem -days 3650 -key ssl/private/cakey.pem \
-                -subj '/O=" + args.company +"/L=" + args.locality +"\
-                /ST=" + args.state + "/C=US/CN=" + args.domain + "\
-                /emailAddress='" + args.email + " -passin pass:" + capass)
+
+        key_path = ssl_dir / "private" / "cakey.pem"
+        cert_path = ssl_dir / "cacert.pem"
+
+        subj = f"/O={args.company}/L={args.locality}/ST={args.state}/C=US/CN={args.domain}/emailAddress={args.email}"
+
+        if capass:
+            run_command([
+                "openssl", "genpkey", "-aes-256-cbc", "-algorithm", "RSA",
+                "-out", str(key_path), "-pass", f"pass:{capass}",
+                "-pkeyopt", "rsa_keygen_bits:4096"
+            ])
+            run_command([
+                "openssl", "req", "-new", "-x509", "-config", str(openssl_conf),
+                "-extensions", "v3_ca", "-sha512",
+                "-addext", "keyUsage=critical,digitalSignature,keyCertSign",
+                "-out", str(cert_path), "-days", "3650",
+                "-key", str(key_path), "-subj", subj,
+                "-passin", f"pass:{capass}"
+            ])
         else:
-            os.system("openssl genrsa -out ssl/private/cakey.pem 4096")
-            os.system("openssl req -new -x509 -extensions v3_ca -sha512 \
-                -out ssl/cacert.pem -days 3650 -key ssl/private/cakey.pem \
-                -subj '/O=" + args.company +"/L=" + args.locality +"\
-                /ST=" + args.state + "/C=US/CN=" + args.domain + "\
-                /emailAddress='" + args.email)
+            run_command(["openssl", "genrsa", "-out", str(key_path), "4096"])
+            run_command([
+                "openssl", "req", "-new", "-x509", "-config", str(openssl_conf),
+                "-extensions", "v3_ca", "-sha512",
+                "-out", str(cert_path), "-days", "3650",
+                "-key", str(key_path), "-subj", subj
+            ])
+
+        print("\n✅ Private CA created in the `ssl/` directory.")
+    else:
+        print("⚠️  CA directory `ssl/` already exists. Delete it first to recreate.")
